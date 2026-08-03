@@ -3,3 +3,12 @@ node_modules
 .env
 
 /generated/prisma
+
+# Python / YOLO
+*.pt
+__pycache__/
+debug_frames/
+venv/
+.venv/
+env/
+*.pth

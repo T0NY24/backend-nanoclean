@@ -9,6 +9,8 @@ const { PrismaPg } = require('@prisma/adapter-pg');
 const setupMqtt = require('./mqtt');
 const sensoresRouter = require('./routes/sensores');
 const dashboardRouter = require('./routes/dashboard');
+const clasificacionRouter = require('./routes/clasificacion');
+const dashboardClasificacionRouter = require('./routes/dashboardClasificacion');
 
 const app = express();
 const server = http.createServer(app);
@@ -39,6 +41,42 @@ setupMqtt(io, prisma);
 // Rutas
 app.use('/api/sensores', sensoresRouter(prisma));
 app.use('/api/dashboard', dashboardRouter(prisma));
+app.use('/api/clasificar', clasificacionRouter(prisma));
+app.use('/api/dashboard/clasificacion', dashboardClasificacionRouter(prisma, io));
+
+// Endpoint interno para recibir clasificaciones del microservicio YOLO (tiempo real)
+app.post('/api/clasificar/internal', async (req, res) => {
+  try {
+    const { contenedor, claseDetectada, confianza, color, instruccion, bbox } = req.body;
+
+    const saved = await prisma.clasificacion.create({
+      data: {
+        contenedor,
+        claseDetectada,
+        confianza
+      }
+    });
+
+    const responseData = {
+      id: saved.id,
+      contenedor,
+      color,
+      instruccion,
+      confianza,
+      clase: claseDetectada,
+      timestamp: saved.timestamp,
+      bbox
+    };
+
+    // Emitir por WebSocket para dashboard en tiempo real
+    io.emit('clasificacionDetectada', responseData);
+
+    res.json(responseData);
+  } catch (error) {
+    console.error('Error guardando clasificación interna:', error);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
 
 // WebSockets (Opcional, para loggear conexiones)
 io.on('connection', (socket) => {
@@ -48,7 +86,7 @@ io.on('connection', (socket) => {
   });
 });
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3001;
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`Servidor Express corriendo en el puerto ${PORT} y accesible desde la red local`);
 });

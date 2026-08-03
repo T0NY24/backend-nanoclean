@@ -15,3 +15,12 @@ model SensorData {
   distancia Float
   timestamp DateTime @default(now())
 }
+
+model Clasificacion {
+  id              Int      @id @default(autoincrement())
+  contenedor      String   // ORGANICO, PAPEL_CARTON, PLASTICO
+  claseDetectada  String
+  confianza       Float
+  kioskId         String?
+  timestamp       DateTime @default(now())
+}

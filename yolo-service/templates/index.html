@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NanoClean - Clasificación en Tiempo Real</title>
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            min-height: 100vh;
+            color: white;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+        }
+        h1 {
+            color: #00ff88;
+            margin-bottom: 10px;
+            text-shadow: 0 0 10px rgba(0, 255, 136, 0.5);
+        }
+        .subtitle {
+            color: #888;
+            margin-bottom: 20px;
+        }
+        .container {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+            justify-content: center;
+            max-width: 1400px;
+            width: 100%;
+        }
+        .video-card {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 15px;
+            padding: 15px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .video-container {
+            position: relative;
+            border-radius: 10px;
+            overflow: hidden;
+            background: #000;
+        }
+        #video {
+            display: block;
+            max-width: 100%;
+        }
+        .detection-box {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 15px;
+            border-radius: 10px;
+            min-width: 200px;
+            border: 2px solid #00ff88;
+        }
+        .detection-box.organico { border-color: #00ff00; }
+        .detection-box.papel_carton { border-color: #808080; }
+        .detection-box.plastico { border-color: #0088ff; }
+        .detection-box.sin-deteccion { border-color: #ff4444; }
+        .detection-label {
+            font-size: 12px;
+            color: #888;
+            margin-bottom: 5px;
+        }
+        .detection-class {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        .detection-confidence {
+            font-size: 14px;
+            color: #00ff88;
+        }
+        .detection-instruction {
+            font-size: 12px;
+            margin-top: 8px;
+            padding: 8px;
+            background: rgba(0, 255, 136, 0.1);
+            border-radius: 5px;
+        }
+        .stats-card {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 15px;
+            padding: 20px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            min-width: 300px;
+        }
+        .stats-title {
+            font-size: 18px;
+            margin-bottom: 15px;
+            color: #00ff88;
+        }
+        .stat-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .stat-item:last-child {
+            border-bottom: none;
+        }
+        .stat-value {
+            font-weight: bold;
+            color: #00ff88;
+        }
+        .controls {
+            margin-top: 20px;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        button {
+            padding: 12px 24px;
+            font-size: 14px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s;
+        }
+        .btn-start {
+            background: #00ff88;
+            color: #1a1a2e;
+        }
+        .btn-start:hover {
+            background: #00cc6a;
+            transform: scale(1.05);
+        }
+        .btn-stop {
+            background: #ff4444;
+            color: white;
+        }
+        .btn-stop:hover {
+            background: #cc0000;
+            transform: scale(1.05);
+        }
+        .btn-classify {
+            background: #0088ff;
+            color: white;
+        }
+        .btn-classify:hover {
+            background: #0066cc;
+            transform: scale(1.05);
+        }
+        .status {
+            margin-top: 15px;
+            padding: 10px;
+            border-radius: 8px;
+            text-align: center;
+            font-size: 14px;
+        }
+        .status.disconnected {
+            background: rgba(255, 68, 68, 0.2);
+            color: #ff4444;
+        }
+        .status.connected {
+            background: rgba(0, 255, 136, 0.2);
+            color: #00ff88;
+        }
+        .confidence-control {
+            margin-top: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .confidence-control input {
+            flex: 1;
+            padding: 8px;
+            border-radius: 5px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            background: rgba(0, 0, 0, 0.3);
+            color: white;
+        }
+        .websocket-status {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 12px;
+        }
+        .ws-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #ff4444;
+        }
+        .ws-dot.connected {
+            background: #00ff88;
+        }
+        .log-container {
+            margin-top: 20px;
+            max-height: 200px;
+            overflow-y: auto;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 8px;
+            padding: 10px;
+        }
+        .log-entry {
+            font-family: monospace;
+            font-size: 12px;
+            padding: 4px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        .log-time {
+            color: #888;
+        }
+        .log-detected {
+            color: #00ff88;
+        }
+    </style>
+</head>
+<body>
+    <h1>🗑️ NanoClean</h1>
+    <p class="subtitle">Clasificación de basura en tiempo real</p>
+
+    <div class="container">
+        <div class="video-card">
+            <div class="video-container">
+                <img id="video" src="/video_feed" alt="Video en vivo">
+                <div class="detection-box" id="detectionBox">
+                    <div class="detection-label">Última detección</div>
+                    <div class="detection-class" id="detectionClass">Sin detección</div>
+                    <div class="detection-confidence" id="detectionConfidence">-</div>
+                    <div class="detection-instruction" id="detectionInstruction">
+                        Apunta la cámara a un objeto
+                    </div>
+                </div>
+            </div>
+
+            <div class="controls">
+                <button class="btn-start" onclick="startCamera()">▶ Iniciar Cámara</button>
+                <button class="btn-stop" onclick="stopCamera()">⏹ Detener</button>
+                <button class="btn-classify" onclick="startClassification()">🔍 Iniciar Clasificación</button>
+                <button class="btn-stop" onclick="stopClassification()">⏹ Detener Clasificación</button>
+            </div>
+
+            <div class="status disconnected" id="cameraStatus">
+                Estado: Desconectado
+            </div>
+
+            <div class="confidence-control">
+                <label>Umbral de confianza:</label>
+                <input type="range" id="confidenceSlider" min="50" max="99" value="98" onchange="updateConfidence(this.value)">
+                <span id="confidenceValue">98%</span>
+            </div>
+        </div>
+
+        <div class="stats-card">
+            <div class="stats-title">📊 Estadísticas</div>
+            <div class="stat-item">
+                <span>Total Hoy</span>
+                <span class="stat-value" id="totalHoy">0</span>
+            </div>
+            <div class="stat-item">
+                <span>Esta Semana</span>
+                <span class="stat-value" id="totalSemana">0</span>
+            </div>
+            <div class="stat-item">
+                <span>Confianza Promedio</span>
+                <span class="stat-value" id="confianzaProm">-</span>
+            </div>
+
+            <div class="stats-title" style="margin-top: 20px;">📈 Distribución</div>
+            <div class="stat-item">
+                <span>🟢 Orgánico</span>
+                <span class="stat-value" id="pctOrganico">0%</span>
+            </div>
+            <div class="stat-item">
+                <span>🟡 Papel/Cartón</span>
+                <span class="stat-value" id="pctPapel">0%</span>
+            </div>
+            <div class="stat-item">
+                <span>🔵 Plástico</span>
+                <span class="stat-value" id="pctPlastico">0%</span>
+            </div>
+
+            <div class="websocket-status" style="margin-top: 20px;">
+                <div class="ws-dot" id="wsDot"></div>
+                <span id="wsStatus">WebSocket desconectado</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="log-container" id="logContainer">
+        <div class="log-entry">
+            <span class="log-time">[--:--:--]</span> Esperando inicio...
+        </div>
+    </div>
+
+    <script>
+        let ws = null;
+        let detectionCallback = null;
+
+        function updateConfidence(value) {
+            document.getElementById('confidenceValue').textContent = value + '%';
+            fetch('/camera/config', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ confidence: value / 100 })
+            });
+        }
+
+        function startCamera() {
+            fetch('/camera/start', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ camera: 'droidcam' })
+            })
+            .then(r => r.json())
+            .then(data => {
+                document.getElementById('cameraStatus').textContent = 'Estado: ' + (data.success ? 'Cámara activa' : 'Error');
+                document.getElementById('cameraStatus').className = 'status ' + (data.success ? 'connected' : 'disconnected');
+            });
+        }
+
+        function stopCamera() {
+            fetch('/camera/stop', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            })
+            .then(r => r.json())
+            .then(data => {
+                document.getElementById('cameraStatus').textContent = 'Estado: Detenida';
+                document.getElementById('cameraStatus').className = 'status disconnected';
+            });
+        }
+
+        function startClassification() {
+            fetch('/classifier/start', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    addLog('Clasificación iniciada');
+                } else {
+                    addLog('Error: ' + (data.detail || 'No se pudo iniciar'));
+                }
+            });
+        }
+
+        function stopClassification() {
+            fetch('/classifier/stop', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            })
+            .then(r => r.json())
+            .then(() => addLog('Clasificación detenida'));
+        }
+
+        function addLog(message) {
+            const log = document.getElementById('logContainer');
+            const time = new Date().toLocaleTimeString();
+            const entry = document.createElement('div');
+            entry.className = 'log-entry';
+            entry.innerHTML = `<span class="log-time">[${time}]</span> <span class="log-detected">${message}</span>`;
+            log.insertBefore(entry, log.firstChild);
+        }
+
+        function updateDetection(data) {
+            const box = document.getElementById('detectionBox');
+            const classEl = document.getElementById('detectionClass');
+            const confEl = document.getElementById('detectionConfidence');
+            const instrEl = document.getElementById('detectionInstruction');
+
+            box.className = 'detection-box';
+
+            if (data.contenedor) {
+                const contenedorLower = data.contenedor.toLowerCase().replace('_', '');
+                box.classList.add(contenedorLower);
+                classEl.textContent = data.contenedor;
+                confEl.textContent = (data.confianza * 100).toFixed(1) + '% de confianza';
+                instrEl.textContent = data.instruccion || '';
+                addLog(`Detectado: ${data.clase} → ${data.contenedor} (${confEl.textContent})`);
+            } else {
+                classEl.textContent = 'Sin detección';
+                confEl.textContent = '-';
+                instrEl.textContent = 'Apunta la cámara a un objeto';
+            }
+        }
+
+        function updateStats(data) {
+            if (data.resumen) {
+                document.getElementById('totalHoy').textContent = data.resumen.totalClasificacionesHoy;
+                document.getElementById('totalSemana').textContent = data.resumen.totalClasificacionesSemana;
+                document.getElementById('confianzaProm').textContent = data.resumen.confianzaPromedio || '-';
+            }
+            if (data.distribucionContenedores) {
+                const dist = data.distribucionContenedores;
+                document.getElementById('pctOrganico').textContent = dist.ORGANICO ? dist.ORGANICO.porcentaje + '%' : '0%';
+                document.getElementById('pctPapel').textContent = dist.PAPEL_CARTON ? dist.PAPEL_CARTON.porcentaje + '%' : '0%';
+                document.getElementById('pctPlastico').textContent = dist.PLASTICO ? dist.PLASTICO.porcentaje + '%' : '0%';
+            }
+        }
+
+        // El backend Node.js corre en puerto 3000
+        const API_BASE = 'http://localhost:3001';
+
+        function connectWebSocket() {
+            // Conectar al Socket.IO del backend Node.js (puerto 3000)
+            ws = io('http://localhost:3001');
+
+            ws.on('connect', () => {
+                document.getElementById('wsDot').className = 'ws-dot connected';
+                document.getElementById('wsStatus').textContent = 'Conectado';
+                addLog('Socket.IO conectado');
+            });
+
+            ws.on('clasificacionDetectada', (data) => {
+                try {
+                    if (data.contenedor) {
+                        updateDetection(data);
+                        // Actualizar estadísticas después de cada detección
+                        fetch('http://localhost:3001/api/dashboard/clasificacion/resumen')
+                            .then(r => r.json())
+                            .then(stats => updateStats(stats));
+                    }
+                } catch (e) {
+                    console.log('Error:', e);
+                }
+            });
+
+            ws.on('disconnect', () => {
+                document.getElementById('wsDot').className = 'ws-dot';
+                document.getElementById('wsStatus').textContent = 'Desconectado';
+            });
+
+            ws.on('connect_error', () => {
+                addLog('Error de conexión Socket.IO');
+            });
+        }
+
+        // Iniciar WebSocket al cargar
+        window.onload = () => {
+            connectWebSocket();
+
+            // Cargar estadísticas iniciales del backend Node.js
+            fetch('http://localhost:3001/api/dashboard/clasificacion/resumen')
+                .then(r => r.json())
+                .then(data => updateStats(data));
+        };
+    </script>
+</body>
+</html>
