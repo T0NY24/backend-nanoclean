@@ -24,3 +24,12 @@ model Clasificacion {
   kioskId         String?
   timestamp       DateTime @default(now())
 }
+
+model Alerta {
+  id           Int      @id @default(autoincrement())
+  contenedorId String
+  tipo         String
+  ubicacion    String?
+  estado       String   @default("PENDIENTE")
+  fecha        DateTime @default(now())
+}

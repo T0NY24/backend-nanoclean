@@ -5,10 +5,8 @@ node_modules
 /generated/prisma
 
 # Python / YOLO
-*.pt
 __pycache__/
 debug_frames/
 venv/
 .venv/
 env/
-*.pth

@@ -24,6 +24,7 @@ CAMERA_CONFIG = {
 
 DEFAULT_CONFIDENCE = float(os.getenv("DEFAULT_CONFIDENCE", "0.10"))
 MIN_DETECTION_INTERVAL = float(os.getenv("MIN_DETECTION_INTERVAL", "3"))
+MIN_BBOX_AREA = float(os.getenv("MIN_BBOX_AREA", "15000")) # Área mínima para considerar que un objeto está "cerca" (ancho * alto en pixeles)
 
 WEB_SERVICE_URL = os.getenv("WEB_SERVICE_URL", "http://localhost:3001")
 

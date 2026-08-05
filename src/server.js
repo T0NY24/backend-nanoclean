@@ -11,6 +11,7 @@ const sensoresRouter = require('./routes/sensores');
 const dashboardRouter = require('./routes/dashboard');
 const clasificacionRouter = require('./routes/clasificacion');
 const dashboardClasificacionRouter = require('./routes/dashboardClasificacion');
+const alertasRouter = require('./routes/alertas');
 
 const app = express();
 const server = http.createServer(app);
@@ -43,6 +44,7 @@ app.use('/api/sensores', sensoresRouter(prisma));
 app.use('/api/dashboard', dashboardRouter(prisma));
 app.use('/api/clasificar', clasificacionRouter(prisma));
 app.use('/api/dashboard/clasificacion', dashboardClasificacionRouter(prisma, io));
+app.use('/api/alertas', alertasRouter(prisma));
 
 // Endpoint interno para recibir clasificaciones del microservicio YOLO (tiempo real)
 app.post('/api/clasificar/internal', async (req, res) => {
@@ -86,7 +88,7 @@ io.on('connection', (socket) => {
   });
 });
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3001;
 const HOST = process.env.HOST || '0.0.0.0';
 server.listen(PORT, HOST, () => {
   console.log(`Servidor Express corriendo en http://${HOST}:${PORT}`);

@@ -10,7 +10,8 @@ from model_loader import get_model, is_model_ready
 from config import (
     DEFAULT_CONFIDENCE,
     MIN_DETECTION_INTERVAL,
-    WEB_SERVICE_URL
+    WEB_SERVICE_URL,
+    MIN_BBOX_AREA
 )
 import torch
 
@@ -63,12 +64,23 @@ class RealTimeClassifier:
             return None
 
         boxes = results[0].boxes
-        best_box_idx = torch.argmax(boxes.conf).item()
         
-        class_id = int(boxes.cls[best_box_idx].item())
-        confidence = float(boxes.conf[best_box_idx].item())
+        # Simulación de profundidad: Filtrar objetos que están muy lejos (área pequeña)
+        xyxy = boxes.xyxy
+        areas = (xyxy[:, 2] - xyxy[:, 0]) * (xyxy[:, 3] - xyxy[:, 1])
+        valid_indices = torch.where(areas >= MIN_BBOX_AREA)[0]
+        
+        if len(valid_indices) == 0:
+            return None
+
+        # Tomar la caja válida con mayor confianza
+        valid_confs = boxes.conf[valid_indices]
+        best_valid_idx = valid_indices[torch.argmax(valid_confs)].item()
+        
+        class_id = int(boxes.cls[best_valid_idx].item())
+        confidence = float(boxes.conf[best_valid_idx].item())
         raw_class_name = results[0].names[class_id].lower()
-        bbox = boxes.xyxy[best_box_idx].tolist()
+        bbox = boxes.xyxy[best_valid_idx].tolist()
 
         CLASS_MAPPING = {
             "cardboard": "papel_carton",

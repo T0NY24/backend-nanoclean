@@ -1,7 +1,11 @@
 const express = require('express');
 
-const ALTURA_MAXIMA = 30.0; // en cm
-const CRITICAL_THRESHOLD = 80.0; // porcentaje
+const ALTURAS_MAXIMAS = {
+  sensor1: 33.80,
+  sensor2: 34.97,
+  sensor3: 31.56
+};
+const CRITICAL_THRESHOLD = 85.0; // porcentaje
 const ONLINE_THRESHOLD = 5 * 60 * 1000; // 5 minutos
 
 module.exports = function (prisma) {
@@ -9,7 +13,7 @@ module.exports = function (prisma) {
 
   router.get('/', async (req, res) => {
     try {
-      const sensoresIds = ['sensor1', 'sensor2'];
+      const sensoresIds = ['sensor1', 'sensor2', 'sensor3'];
       const contenedores = [];
       let contenedoresCriticos = 0;
       let sumaPorcentajes = 0;
@@ -25,7 +29,8 @@ module.exports = function (prisma) {
 
         if (latest) {
           // Cálculo de porcentaje (invertido porque menor distancia = más lleno)
-          let porcentajeLlenado = 100 - (latest.distancia / ALTURA_MAXIMA * 100);
+          const alturaMaxima = ALTURAS_MAXIMAS[sensorId] || 30.0;
+          let porcentajeLlenado = 100 - (latest.distancia / alturaMaxima * 100);
           // Limitar entre 0 y 100
           porcentajeLlenado = Math.max(0, Math.min(100, porcentajeLlenado));
           
@@ -64,9 +69,10 @@ module.exports = function (prisma) {
           take: 20
         });
         
+        const alturaMaxima = ALTURAS_MAXIMAS[sensorId] || 30.0;
         historialData[sensorId] = history.map(h => ({
           timestamp: h.timestamp,
-          porcentaje: Math.max(0, Math.min(100, 100 - (h.distancia / ALTURA_MAXIMA * 100)))
+          porcentaje: Math.max(0, Math.min(100, 100 - (h.distancia / alturaMaxima * 100)))
         })).reverse(); // Invertir para que vaya de más antiguo a más nuevo
       }
 

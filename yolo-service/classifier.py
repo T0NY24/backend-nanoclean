@@ -3,6 +3,7 @@ import numpy as np
 from io import BytesIO
 from PIL import Image
 from model_loader import get_model, is_model_ready
+from config import MIN_BBOX_AREA
 
 CONTAINER_MAPPING = {
     "organico": {
@@ -47,12 +48,26 @@ def classify_image(image_bytes: bytes) -> dict:
 
         # Tomar la caja con mayor confianza
         boxes = results[0].boxes
-        best_box_idx = torch.argmax(boxes.conf).item()
         
-        class_id = int(boxes.cls[best_box_idx].item())
-        confidence = float(boxes.conf[best_box_idx].item())
+        # Simulación de profundidad: Filtrar objetos que están muy lejos (área pequeña)
+        xyxy = boxes.xyxy
+        areas = (xyxy[:, 2] - xyxy[:, 0]) * (xyxy[:, 3] - xyxy[:, 1])
+        valid_indices = torch.where(areas >= MIN_BBOX_AREA)[0]
+        
+        if len(valid_indices) == 0:
+            return {
+                "success": False,
+                "error": "Se detectaron objetos, pero están demasiado lejos (área insuficiente)"
+            }
+
+        # Tomar la caja válida con mayor confianza
+        valid_confs = boxes.conf[valid_indices]
+        best_valid_idx = valid_indices[torch.argmax(valid_confs)].item()
+        
+        class_id = int(boxes.cls[best_valid_idx].item())
+        confidence = float(boxes.conf[best_valid_idx].item())
         raw_class_name = results[0].names[class_id].lower()
-        bbox = boxes.xyxy[best_box_idx].tolist()
+        bbox = boxes.xyxy[best_valid_idx].tolist()
 
         CLASS_MAPPING = {
             "cardboard": "papel_carton",
