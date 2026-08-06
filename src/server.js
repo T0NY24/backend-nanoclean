@@ -16,16 +16,37 @@ const alertasRouter = require('./routes/alertas');
 const app = express();
 const server = http.createServer(app);
 
+const allowedOrigins = [
+  'https://nanoclean.uidehub.tech',
+  'http://localhost:3000',
+  'http://localhost:3001',
+  'http://localhost:3006',
+  'http://127.0.0.1:3000',
+  'http://127.0.0.1:3001',
+  'http://127.0.0.1:3006'
+];
+
 // Configurar WebSockets
 const io = new Server(server, {
   cors: {
-    origin: '*',
-    methods: ['GET', 'POST']
+    origin: allowedOrigins,
+    methods: ['GET', 'POST'],
+    credentials: true
   }
 });
 
 // Middlewares
-app.use(cors());
+app.use(cors({
+  origin: function (origin, callback) {
+    // Permitir peticiones sin origen (como scripts locales, MQTT, Postman o curl)
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.indexOf(origin) !== -1 || origin.startsWith('http://localhost') || origin.startsWith('http://127.0.0.1')) {
+      return callback(null, true);
+    }
+    return callback(new Error('Bloqueado por política CORS'));
+  },
+  credentials: true
+}));
 app.use(express.json());
 
 // Prisma Client
