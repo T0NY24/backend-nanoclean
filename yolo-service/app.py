@@ -22,6 +22,8 @@ app = FastAPI(
 
 origins = [
     "https://nanoclean.uidehub.tech",
+    "https://api-nano-clean.uidehub.tech",
+    "https://api-yolo.uidehub.tech",
     "http://localhost:3000",
     "http://localhost:3001",
     "http://localhost:3006",
